@@ -1,6 +1,6 @@
 # Pinnacle Bonus Intelligence Dashboard
 ## README & User Guide
-*Sales Performance & Bonus Tracking System — For VP of Sales & Department Team Leads*
+*Organizational performance and bonus tracking dashboard designed to model KPI rollups across executives, departments, teams, and individual contributors. Demonstrates operational analytics, hierarchical reporting structures, and incentive-based performance measurement concepts.*
 
 ---
 
