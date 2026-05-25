@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sales Bonus Intelligence Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'DM Sans',sans-serif;background:#0b1426;color:#e8e4d8;min-height:100vh}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:#0b1426}::-webkit-scrollbar-thumb{background:#2a3a5c;border-radius:3px}
+
+/* ── Upload zone ── */
+#upload-zone{background:#0d1831;border:2px dashed #c9a84c50;border-radius:12px;margin:24px 28px;padding:32px;text-align:center;cursor:pointer;transition:all .2s}
+#upload-zone:hover,#upload-zone.drag{border-color:#c9a84c;background:#c9a84c08}
+#upload-zone.has-file{border-style:solid;border-color:#4aab7a50;background:#4aab7a08}
+.upload-icon{font-size:36px;margin-bottom:10px}
+.upload-title{font-family:'Playfair Display',serif;font-size:18px;color:#c9a84c;margin-bottom:6px}
+.upload-sub{font-size:13px;color:#7a8099}
+.upload-btn{margin-top:14px;padding:9px 24px;background:#c9a84c;color:#0b1426;border:none;border-radius:6px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:500;cursor:pointer;transition:opacity .15s}
+.upload-btn:hover{opacity:.85}
+#file-name-display{margin-top:10px;font-size:12px;color:#4aab7a;display:none}
+#file-input{display:none}
+
+/* ── Header ── */
+.db-header{background:#0d1831;border-bottom:1px solid #c9a84c30;padding:18px 28px;display:flex;align-items:center;justify-content:space-between}
+.db-logo{font-family:'Playfair Display',serif;font-size:18px;color:#c9a84c;font-weight:600;letter-spacing:.04em}
+.db-logo span{color:#e8e4d8;font-weight:500}
+.db-header-right{display:flex;align-items:center;gap:16px}
+.period-tabs{display:flex;background:#0b1426;border-radius:8px;border:1px solid #c9a84c30;overflow:hidden}
+.period-tab{padding:7px 18px;font-size:12px;font-weight:500;color:#7a8099;cursor:pointer;letter-spacing:.05em;border:none;background:none;transition:all .15s;font-family:'DM Sans',sans-serif}
+.period-tab.active{background:#c9a84c;color:#0b1426}
+.period-tab:hover:not(.active){color:#c9a84c}
+.last-updated{font-size:11px;color:#7a8099;background:#c9a84c20;border:1px solid #c9a84c40;border-radius:20px;padding:4px 12px}
+
+/* ── Nav ── */
+.db-nav{background:#0d1831;border-bottom:1px solid #ffffff0d;padding:0 28px;display:flex;gap:0}
+.nav-tab{padding:13px 20px;font-size:13px;font-weight:500;color:#7a8099;cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;display:flex;align-items:center;gap:7px;white-space:nowrap}
+.nav-tab.active{color:#c9a84c;border-bottom-color:#c9a84c}
+.nav-tab:hover:not(.active){color:#b0b8cc}
+
+/* ── Body ── */
+.db-body{padding:24px 28px}
+.tab-view{display:none}.tab-view.active{display:block}
+
+/* ── KPI cards ── */
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px}
+.kpi-card{background:#0d1831;border:1px solid #c9a84c20;border-radius:10px;padding:18px 20px;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,#c9a84c,#e8c96a)}
+.kpi-label{font-size:11px;color:#7a8099;letter-spacing:.06em;text-transform:uppercase;margin-bottom:8px}
+.kpi-value{font-family:'Playfair Display',serif;font-size:26px;color:#e8e4d8;font-weight:500}
+.kpi-value.gold{color:#c9a84c}
+.kpi-sub{font-size:12px;color:#7a8099;margin-top:6px}
+.kpi-up{color:#4aab7a}.kpi-dn{color:#e24b4a}
+
+/* ── Panels ── */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+.three-col{display:grid;grid-template-columns:2fr 1fr;gap:14px;margin-bottom:14px}
+.panel{background:#0d1831;border:1px solid #ffffff0d;border-radius:10px;padding:20px}
+.panel-title{font-family:'Playfair Display',serif;font-size:14px;color:#c9a84c;font-weight:500;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between}
+.panel-sub{font-size:11px;color:#7a8099;margin-bottom:16px}
+.chart-wrap{position:relative;width:100%;height:200px}
+
+/* ── Dept / Rep rows ── */
+.dept-row{display:flex;align-items:center;gap:12px;padding:10px 8px;border-bottom:1px solid #ffffff08;cursor:pointer;border-radius:6px;transition:background .12s}
+.dept-row:last-child{border-bottom:none}
+.dept-row:hover{background:#c9a84c08}
+.dept-rank{font-size:11px;color:#7a8099;min-width:18px}
+.dept-avatar{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:500;flex-shrink:0}
+.dept-info{flex:1;min-width:0}
+.dept-name{font-size:13px;font-weight:500;color:#e8e4d8}
+.dept-sub{font-size:11px;color:#7a8099;margin-top:1px}
+.dept-bar-wrap{width:110px}
+.bar-bg{background:#1a2540;border-radius:3px;height:5px;overflow:hidden}
+.bar-fill{height:100%;border-radius:3px;background:#c9a84c;transition:width .5s}
+.bar-fill.green{background:#4aab7a}.bar-fill.red{background:#e24b4a}
+.dept-pct{font-size:12px;font-weight:500;min-width:38px;text-align:right}
+.tier-badge{font-size:10px;border-radius:20px;padding:2px 8px;font-weight:500;min-width:52px;text-align:center}
+.t-gold{background:#c9a84c20;color:#c9a84c;border:1px solid #c9a84c40}
+.t-silver{background:#9ca3b020;color:#9ca3b0;border:1px solid #9ca3b040}
+.t-bronze{background:#cd7f3220;color:#cd7f32;border:1px solid #cd7f3240}
+.t-miss{background:#e24b4a15;color:#e24b4a;border:1px solid #e24b4a30}
+
+/* ── Drill ── */
+.drill-header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:#0b1426;border-radius:8px;margin-bottom:14px;cursor:pointer;border:1px solid #c9a84c30}
+.drill-header:hover{background:#c9a84c08}
+.drill-view{display:none}.drill-view.active{display:block}
+.main-view.hidden{display:none}
+
+/* ── Individuals table ── */
+.indiv-row{display:grid;grid-template-columns:28px 1fr 80px 90px 70px 44px;gap:8px;align-items:center;padding:9px 4px;border-bottom:1px solid #ffffff08;font-size:12px}
+.indiv-row.hdr{font-size:10px;color:#7a8099;letter-spacing:.05em;text-transform:uppercase;border-bottom:1px solid #c9a84c20;padding-bottom:8px}
+.indiv-row:last-child{border-bottom:none}
+
+/* ── Team cards ── */
+.team-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:14px}
+.team-card{background:#0b1426;border:1px solid #ffffff0d;border-radius:8px;padding:14px;cursor:pointer;transition:border-color .15s}
+.team-card:hover{border-color:#c9a84c40}
+
+/* ── Tier page ── */
+.tier-row{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:8px;background:#0b1426;border:1px solid #ffffff0a;margin-bottom:8px}
+.spark-row{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.spark-label{font-size:12px;color:#b0b8cc;min-width:80px}
+.spark-bar{flex:1;height:8px;background:#1a2540;border-radius:4px;overflow:hidden}
+.spark-fill{height:100%;border-radius:4px}
+.spark-val{font-size:12px;min-width:70px;text-align:right}
+
+/* ── No-data state ── */
+#no-data{text-align:center;padding:60px 28px;display:none}
+#no-data.show{display:block}
+#dashboard-content{display:none}
+#dashboard-content.show{display:block}
+</style>
+</head>
+<body>
+
+<div class="db-header">
+  <div>
+    <div class="db-logo">PINNACLE <span>BONUS INTELLIGENCE</span></div>
+    <div style="font-size:11px;color:#7a8099;margin-top:2px">Sales performance & bonus tracking</div>
+  </div>
+  <div class="db-header-right">
+    <div class="period-tabs">
+      <button class="period-tab active" onclick="setPeriod('monthly',this)">Monthly</button>
+      <button class="period-tab" onclick="setPeriod('quarterly',this)">Quarterly</button>
+      <button class="period-tab" onclick="setPeriod('yearly',this)">Yearly</button>
+    </div>
+    <div class="last-updated" id="last-updated-label">No file loaded</div>
+  </div>
+</div>
+
+<!-- Upload zone -->
+<div id="upload-zone" onclick="document.getElementById('file-input').click()"
+     ondragover="event.preventDefault();this.classList.add('drag')"
+     ondragleave="this.classList.remove('drag')"
+     ondrop="handleDrop(event)">
+  <div class="upload-icon">📊</div>
+  <div class="upload-title">Upload your Excel data file</div>
+  <div class="upload-sub">Drag & drop your .xlsx file here, or click to browse<br>Use the template provided to ensure correct column layout</div>
+  <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('file-input').click()">Choose File</button>
+  <div id="file-name-display"></div>
+</div>
+<input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+
+<!-- No data placeholder -->
+<div id="no-data">
+  <div style="font-family:'Playfair Display',serif;font-size:22px;color:#c9a84c;margin-bottom:12px">Upload a file to get started</div>
+  <div style="font-size:14px;color:#7a8099">Download the Excel template, fill in your rep data, then upload it above.</div>
+</div>
+
+<!-- Main dashboard -->
+<div id="dashboard-content">
+  <div class="db-nav">
+    <div class="nav-tab active" onclick="showTab('overview',this)">&#9632; Executive Overview</div>
+    <div class="nav-tab" onclick="showTab('departments',this)">&#9632; Departments</div>
+    <div class="nav-tab" onclick="showTab('teams',this)">&#9632; Teams</div>
+    <div class="nav-tab" onclick="showTab('individuals',this)">&#9632; Individuals</div>
+    <div class="nav-tab" onclick="showTab('tiers',this)">&#9632; Tier Structure</div>
+  </div>
+
+  <div class="db-body">
+
+    <!-- OVERVIEW -->
+    <div id="tab-overview" class="tab-view active">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Company quota attainment</div><div class="kpi-value gold" id="k-attain">—</div><div class="kpi-sub" id="k-attain-sub"></div></div>
+        <div class="kpi-card"><div class="kpi-label">Total bonus accrual</div><div class="kpi-value" id="k-bonus">—</div><div class="kpi-sub" id="k-bonus-sub"></div></div>
+        <div class="kpi-card"><div class="kpi-label">Reps at or above quota</div><div class="kpi-value" id="k-reps">—</div><div class="kpi-sub" id="k-reps-sub"></div></div>
+        <div class="kpi-card"><div class="kpi-label">Gold tier achievers</div><div class="kpi-value gold" id="k-gold">—</div><div class="kpi-sub">≥ threshold attainment</div></div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-title">Department attainment <span style="font-size:11px;font-family:'DM Sans',sans-serif;color:#7a8099" id="ov-period-lbl"></span></div>
+          <div class="panel-sub">Quota attainment % by department</div>
+          <div class="chart-wrap" style="height:220px"><canvas id="deptBarChart" role="img" aria-label="Department attainment bar chart">Department attainment data</canvas></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Tier distribution</div>
+          <div class="panel-sub" id="tier-dist-sub">Current period</div>
+          <div class="chart-wrap" style="height:170px"><canvas id="tierDonutChart" role="img" aria-label="Tier distribution donut chart">Tier distribution data</canvas></div>
+          <div id="tier-legend" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:10px;font-size:11px;color:#c9a84c"></div>
+        </div>
+      </div>
+      <div class="three-col">
+        <div class="panel">
+          <div class="panel-title">Department snapshot</div>
+          <div class="panel-sub">Click any row to drill into teams</div>
+          <div id="ov-dept-list"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Bonus accrual by tier</div>
+          <div class="panel-sub">Estimated $ accrued this period</div>
+          <div id="tier-accrual-bars" style="margin-top:8px"></div>
+          <div style="border-top:1px solid #ffffff0d;margin-top:14px;padding-top:12px;text-align:center">
+            <div style="font-family:'Playfair Display',serif;font-size:28px;color:#c9a84c" id="total-accrual-lbl">—</div>
+            <div style="font-size:11px;color:#7a8099;margin-top:4px">Total bonus accrual</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DEPARTMENTS -->
+    <div id="tab-departments" class="tab-view">
+      <div class="main-view" id="dept-main">
+        <div class="panel">
+          <div class="panel-title">Department standings</div>
+          <div class="panel-sub">Click any department to view its teams</div>
+          <div id="dept-full-list"></div>
+        </div>
+      </div>
+      <div class="drill-view" id="dept-drill">
+        <div class="drill-header" onclick="exitDrill()">
+          <span style="color:#c9a84c;font-size:18px">&#8592;</span>
+          <span style="font-size:12px;color:#c9a84c">All departments</span>
+          <span style="font-size:11px;color:#7a8099">›</span>
+          <span style="font-size:13px;color:#e8e4d8" id="drill-dept-name">—</span>
+        </div>
+        <div class="kpi-grid" id="drill-kpis"></div>
+        <div class="panel">
+          <div class="panel-title">Teams within <span id="drill-dept-name2">—</span></div>
+          <div class="panel-sub">Click a team to see individual reps</div>
+          <div id="drill-team-list"></div>
+        </div>
+      </div>
+      <div class="drill-view" id="team-drill">
+        <div class="drill-header" onclick="exitTeamDrill()">
+          <span style="color:#c9a84c;font-size:18px">&#8592;</span>
+          <span style="font-size:12px;color:#c9a84c" id="team-drill-dept">—</span>
+          <span style="font-size:11px;color:#7a8099">›</span>
+          <span style="font-size:13px;color:#e8e4d8" id="team-drill-name">—</span>
+        </div>
+        <div id="team-indiv-list"></div>
+      </div>
+    </div>
+
+    <!-- TEAMS -->
+    <div id="tab-teams" class="tab-view">
+      <div class="team-grid" id="all-teams-grid"></div>
+    </div>
+
+    <!-- INDIVIDUALS -->
+    <div id="tab-individuals" class="tab-view">
+      <div class="panel">
+        <div class="panel-title">All representatives
+          <select id="dept-filter" onchange="filterIndivs()" style="font-size:12px;padding:5px 10px;background:#0b1426;color:#e8e4d8;border:1px solid #c9a84c30;border-radius:6px;cursor:pointer;font-family:'DM Sans',sans-serif">
+            <option value="all">All departments</option>
+          </select>
+        </div>
+        <div class="panel-sub" id="indiv-sub">Sorted by attainment</div>
+        <div class="indiv-row hdr"><div>#</div><div>Representative</div><div>Quota %</div><div>Bonus est.</div><div>Tier</div><div>Active</div></div>
+        <div id="all-indivs"></div>
+      </div>
+    </div>
+
+    <!-- TIERS -->
+    <div id="tab-tiers" class="tab-view">
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-title">Bonus tier structure</div>
+          <div class="panel-sub">From your Tiers sheet</div>
+          <div id="tier-structure-list"></div>
+          <div style="margin-top:16px;padding:14px;background:#0b1426;border-radius:8px;border:1px solid #c9a84c20">
+            <div style="font-size:11px;color:#7a8099;margin-bottom:8px;letter-spacing:.05em;text-transform:uppercase">Accelerator note</div>
+            <div style="font-size:12px;color:#b0b8cc;line-height:1.7" id="accel-note">Loaded from tier configuration.</div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Attainment band distribution</div>
+          <div class="panel-sub">Reps per attainment range</div>
+          <div class="chart-wrap" style="height:230px"><canvas id="bandChart" role="img" aria-label="Attainment band bar chart">Band distribution data</canvas></div>
+          <div style="margin-top:16px">
+            <div style="font-size:11px;color:#7a8099;letter-spacing:.05em;text-transform:uppercase;margin-bottom:10px">Sample bonus calc · mid-level rep</div>
+            <div id="sample-calc"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- db-body -->
+</div><!-- dashboard-content -->
+
+<script>
+// ── State ──
+let RAW = { reps:[], tiers:[], goals:[] };
+let PERIOD = 'monthly';
+let currentDept = null;
+let charts = {};
+
+// ── File handling ──
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('upload-zone').classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+}
+
+function handleFile(file){
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const wb = XLSX.read(e.target.result, {type:'array'});
+    parseWorkbook(wb, file.name);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseWorkbook(wb, fname){
+  // Reps
+  const rSheet = wb.Sheets['Reps'];
+  if(!rSheet){ alert('Could not find a sheet named "Reps". Please use the provided template.'); return; }
+  const rData = XLSX.utils.sheet_to_json(rSheet, {header:1, defval:''});
+  RAW.reps = [];
+  for(let i=2; i<rData.length; i++){
+    const r = rData[i];
+    if(!r[0]) continue;
+    const active = String(r[13]||'Y').toUpperCase().trim();
+    if(active === 'N') continue;
+    RAW.reps.push({
+      name:   String(r[0]||'').trim(),
+      role:   String(r[1]||'').trim(),
+      dept:   String(r[2]||'').trim(),
+      team:   String(r[3]||'').trim(),
+      lead:   String(r[4]||'').trim(),
+      base:   Number(r[5])||0,
+      mQuota: Number(r[6])||0,
+      mActual:Number(r[7])||0,
+      qQuota: Number(r[8])||0,
+      qActual:Number(r[9])||0,
+      yQuota: Number(r[10])||0,
+      yActual:Number(r[11])||0,
+      notes:  String(r[12]||'').trim(),
+    });
+  }
+
+  // Tiers
+  const tSheet = wb.Sheets['Tiers'];
+  RAW.tiers = [];
+  if(tSheet){
+    const tData = XLSX.utils.sheet_to_json(tSheet, {header:1, defval:''});
+    for(let i=2; i<tData.length; i++){
+      const r = tData[i];
+      if(!r[0]) continue;
+      RAW.tiers.push({
+        name:    String(r[0]).trim(),
+        min:     Number(r[1])||0,
+        max:     Number(r[2])||999,
+        bonusPct:Number(r[3])||0,
+        mult:    Number(r[4])||1,
+        color:   '#'+(String(r[5]||'9CA3B0').replace('#','')),
+        notes:   String(r[6]||'').trim(),
+      });
+    }
+  }
+  if(!RAW.tiers.length){
+    RAW.tiers = [
+      {name:'Gold',   min:110,max:999,bonusPct:.15,mult:1.5,color:'#C9A84C',notes:'≥110%'},
+      {name:'Silver', min:100,max:109,bonusPct:.10,mult:1.0,color:'#9CA3B0',notes:'100–109%'},
+      {name:'Bronze', min:80, max:99, bonusPct:.05,mult:1.0,color:'#CD7F32',notes:'80–99%'},
+      {name:'Below',  min:0,  max:79, bonusPct:.00,mult:0.0,color:'#E24B4A',notes:'<80%'},
+    ];
+  }
+
+  // Goals
+  const gSheet = wb.Sheets['Goals'];
+  RAW.goals = [];
+  if(gSheet){
+    const gData = XLSX.utils.sheet_to_json(gSheet, {header:1, defval:''});
+    for(let i=2; i<gData.length; i++){
+      const r = gData[i];
+      if(!r[0]) continue;
+      RAW.goals.push({
+        type:   String(r[0]).trim().toLowerCase(),
+        label:  String(r[1]).trim(),
+        goal:   Number(r[2])||0,
+        headcount:Number(r[3])||0,
+        goldTarget:Number(r[4])||0,
+        notes:  String(r[5]||'').trim(),
+      });
+    }
+  }
+
+  // Update UI
+  const uz = document.getElementById('upload-zone');
+  uz.classList.add('has-file');
+  const fn = document.getElementById('file-name-display');
+  fn.style.display = 'block';
+  fn.textContent = '✓ Loaded: ' + fname + ' · ' + RAW.reps.length + ' active reps';
+  document.getElementById('last-updated-label').textContent = 'Updated: ' + new Date().toLocaleTimeString();
+  document.getElementById('no-data').classList.remove('show');
+  document.getElementById('dashboard-content').classList.add('show');
+
+  populateDeptFilter();
+  renderAll();
+}
+
+// ── Helpers ──
+function getQuotaActual(rep){
+  if(PERIOD==='monthly')   return {quota:rep.mQuota, actual:rep.mActual};
+  if(PERIOD==='quarterly') return {quota:rep.qQuota, actual:rep.qActual};
+  return {quota:rep.yQuota, actual:rep.yActual};
+}
+
+function attainPct(rep){
+  const {quota,actual} = getQuotaActual(rep);
+  if(!quota) return 0;
+  return Math.round(actual/quota*100);
+}
+
+function getTier(pct){
+  const sorted = [...RAW.tiers].sort((a,b)=>b.min-a.min);
+  return sorted.find(t=>pct>=t.min) || RAW.tiers[RAW.tiers.length-1];
+}
+
+function bonusEst(rep){
+  const pct = attainPct(rep);
+  const tier = getTier(pct);
+  return Math.round(rep.base * tier.bonusPct * tier.mult);
+}
+
+function fmt$(n){ return '$'+(Math.round(n)).toLocaleString(); }
+function fmtK(n){ return n>=1000000?'$'+Math.round(n/100000)/10+'M':'$'+Math.round(n/1000)+'K'; }
+
+function tierClass(t){
+  const n = t.name.toLowerCase();
+  if(n.includes('gold'))   return 't-gold';
+  if(n.includes('silver')) return 't-silver';
+  if(n.includes('bronze')) return 't-bronze';
+  return 't-miss';
+}
+
+function barClass(pct){ return pct>=100?'green':pct<80?'red':''; }
+function initials(name){ return name.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase(); }
+
+// ── Period ──
+function setPeriod(p,el){
+  PERIOD=p;
+  document.querySelectorAll('.period-tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  renderAll();
+}
+
+// ── Tabs ──
+function showTab(tab,el){
+  document.querySelectorAll('.tab-view').forEach(v=>v.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  el.classList.add('active');
+  exitDrill();
+}
+
+// ── Main render ──
+function renderAll(){
+  renderKPIs();
+  renderDeptBarChart();
+  renderTierDonut();
+  renderOvDeptList();
+  renderTierAccrual();
+  renderDeptFull();
+  renderAllTeams();
+  renderAllIndivs();
+  renderTierStructure();
+  renderBandChart();
+  renderSampleCalc();
+  const labels = {monthly:'Monthly',quarterly:'Quarterly',yearly:'Yearly'};
+  document.getElementById('ov-period-lbl').textContent = labels[PERIOD]||'';
+}
+
+function renderKPIs(){
+  const active = RAW.reps;
+  if(!active.length) return;
+  const attains = active.map(r=>attainPct(r));
+  const avg = Math.round(attains.reduce((a,b)=>a+b,0)/attains.length);
+  const atOrAbove = active.filter(r=>attainPct(r)>=100).length;
+  const pctAtAbove = Math.round(atOrAbove/active.length*100);
+  const goldTier = RAW.tiers.find(t=>t.name.toLowerCase().includes('gold'))||RAW.tiers[0];
+  const goldCount = active.filter(r=>attainPct(r)>=goldTier.min).length;
+  const totalBonus = active.reduce((s,r)=>s+bonusEst(r),0);
+
+  document.getElementById('k-attain').textContent = avg+'%';
+  document.getElementById('k-attain-sub').innerHTML = `<span class="${avg>=100?'kpi-up':'kpi-dn'}">${avg>=100?'↑ on track':'↓ below target'}</span>`;
+  document.getElementById('k-bonus').textContent = fmtK(totalBonus);
+  document.getElementById('k-bonus-sub').textContent = 'Estimated this period';
+  document.getElementById('k-reps').textContent = pctAtAbove+'%';
+  document.getElementById('k-reps-sub').textContent = atOrAbove+' of '+active.length+' reps';
+  document.getElementById('k-gold').textContent = goldCount;
+  document.getElementById('total-accrual-lbl').textContent = fmtK(totalBonus);
+}
+
+// ── Charts ──
+function destroyChart(id){ if(charts[id]){ charts[id].destroy(); delete charts[id]; } }
+
+function renderDeptBarChart(){
+  destroyChart('deptBar');
+  const depts = groupByDept();
+  const labels = Object.keys(depts);
+  const data = labels.map(d=>deptAttain(depts[d]));
+  const colors = data.map(v=>v>=100?'#4aab7a':v>=80?'#c9a84c':'#e24b4a');
+  const ctx = document.getElementById('deptBarChart').getContext('2d');
+  charts['deptBar'] = new Chart(ctx,{
+    type:'bar',
+    data:{labels,datasets:[{label:'Attainment %',data,backgroundColor:colors,borderRadius:4,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0d1831',titleColor:'#c9a84c',bodyColor:'#e8e4d8',borderColor:'#c9a84c30',borderWidth:1,callbacks:{label:ctx=>ctx.parsed.y+'%'}}},
+      scales:{x:{grid:{display:false},ticks:{color:'#7a8099',font:{size:10}}},y:{grid:{color:'#ffffff0a'},ticks:{color:'#7a8099',font:{size:10},callback:v=>v+'%'},min:0,max:140}}
+    }
+  });
+}
+
+function renderTierDonut(){
+  destroyChart('tierDonut');
+  const counts = RAW.tiers.map(t=>RAW.reps.filter(r=>{ const p=attainPct(r); return p>=t.min&&p<=t.max; }).length);
+  const colors = RAW.tiers.map(t=>t.color);
+  const ctx = document.getElementById('tierDonutChart').getContext('2d');
+  charts['tierDonut'] = new Chart(ctx,{
+    type:'doughnut',
+    data:{labels:RAW.tiers.map(t=>t.name),datasets:[{data:counts,backgroundColor:colors,borderWidth:2,borderColor:'#0d1831'}]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'72%',
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0d1831',titleColor:'#c9a84c',bodyColor:'#e8e4d8',borderColor:'#c9a84c30',borderWidth:1}}
+    }
+  });
+  const total = counts.reduce((a,b)=>a+b,0);
+  document.getElementById('tier-legend').innerHTML = RAW.tiers.map((t,i)=>`
+    <span style="display:flex;align-items:center;gap:5px;color:${t.color}">
+      <span style="width:8px;height:8px;border-radius:2px;background:${t.color};display:inline-block"></span>
+      ${t.name} ${total?Math.round(counts[i]/total*100):0}%
+    </span>`).join('');
+  document.getElementById('tier-dist-sub').textContent = RAW.reps.length+' reps · current period';
+}
+
+function renderBandChart(){
+  destroyChart('band');
+  const bands = ['<70','70-79','80-89','90-99','100-109','110-119','120+'];
+  const ranges = [[0,69],[70,79],[80,89],[90,99],[100,109],[110,119],[120,999]];
+  const counts = ranges.map(([lo,hi])=>RAW.reps.filter(r=>{ const p=attainPct(r); return p>=lo&&p<=hi; }).length);
+  const colors = ['#e24b4a','#e24b4a','#cd7f32','#cd7f32','#9ca3b0','#c9a84c','#c9a84c'];
+  const ctx = document.getElementById('bandChart').getContext('2d');
+  charts['band'] = new Chart(ctx,{
+    type:'bar',
+    data:{labels:bands,datasets:[{label:'Reps',data:counts,backgroundColor:colors,borderRadius:4,borderWidth:0}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{backgroundColor:'#0d1831',titleColor:'#c9a84c',bodyColor:'#e8e4d8',borderColor:'#c9a84c30',borderWidth:1}},
+      scales:{x:{grid:{display:false},ticks:{color:'#7a8099',font:{size:10}}},y:{grid:{color:'#ffffff0a'},ticks:{color:'#7a8099',font:{size:10},stepSize:1}}}
+    }
+  });
+}
+
+// ── Department grouping ──
+function groupByDept(){
+  const d={};
+  RAW.reps.forEach(r=>{ if(!d[r.dept])d[r.dept]=[]; d[r.dept].push(r); });
+  return d;
+}
+function groupByTeam(deptReps){
+  const t={};
+  deptReps.forEach(r=>{ if(!t[r.team])t[r.team]=[]; t[r.team].push(r); });
+  return t;
+}
+function deptAttain(reps){
+  if(!reps.length) return 0;
+  return Math.round(reps.map(r=>attainPct(r)).reduce((a,b)=>a+b,0)/reps.length);
+}
+function deptBonus(reps){ return reps.reduce((s,r)=>s+bonusEst(r),0); }
+function deptLead(reps){ return reps[0]?.lead||'—'; }
+
+// ── Render dept list (shared) ──
+function buildDeptRow(deptName, reps, rank, onclick, showBonus){
+  const attain = deptAttain(reps);
+  const tier = getTier(attain);
+  const row = document.createElement('div');
+  row.className = 'dept-row';
+  row.onclick = onclick;
+  const pctW = Math.min(attain/140*100,100);
+  row.innerHTML = `
+    <div class="dept-rank">${rank}</div>
+    <div class="dept-avatar" style="background:${tier.color}20;color:${tier.color}">${initials(deptName)}</div>
+    <div class="dept-info">
+      <div class="dept-name">${deptName}</div>
+      <div class="dept-sub">${deptLead(reps)} · ${reps.length} reps${showBonus?' · '+fmtK(deptBonus(reps)):''}</div>
+    </div>
+    <div class="dept-bar-wrap"><div class="bar-bg"><div class="bar-fill ${barClass(attain)}" style="width:${pctW}%"></div></div></div>
+    <div class="dept-pct" style="color:${tier.color}">${attain}%</div>
+    <div class="tier-badge ${tierClass(tier)}">${tier.name}</div>
+    <span style="color:#7a8099;font-size:14px">›</span>`;
+  return row;
+}
+
+function renderOvDeptList(){
+  const el = document.getElementById('ov-dept-list');
+  el.innerHTML='';
+  const depts = groupByDept();
+  Object.entries(depts).sort((a,b)=>deptAttain(b[1])-deptAttain(a[1])).forEach(([name,reps],i)=>{
+    el.appendChild(buildDeptRow(name,reps,i+1,()=>{ showTab('departments',document.querySelector('[onclick*="departments"]')); drillDept(name,reps); },false));
+  });
+}
+
+function renderDeptFull(){
+  const el = document.getElementById('dept-full-list');
+  el.innerHTML='';
+  const depts = groupByDept();
+  Object.entries(depts).sort((a,b)=>deptAttain(b[1])-deptAttain(a[1])).forEach(([name,reps],i)=>{
+    el.appendChild(buildDeptRow(name,reps,i+1,()=>drillDept(name,reps),true));
+  });
+}
+
+function renderTierAccrual(){
+  const el = document.getElementById('tier-accrual-bars');
+  const totals = RAW.tiers.map(t=>RAW.reps.filter(r=>{const p=attainPct(r);return p>=t.min&&p<=t.max;}).reduce((s,r)=>s+bonusEst(r),0));
+  const max = Math.max(...totals,1);
+  el.innerHTML = RAW.tiers.map((t,i)=>`
+    <div class="spark-row">
+      <div class="spark-label">${t.name}</div>
+      <div class="spark-bar"><div class="spark-fill" style="width:${totals[i]/max*100}%;background:${t.color}"></div></div>
+      <div class="spark-val" style="color:${t.color}">${fmtK(totals[i])}</div>
+    </div>`).join('');
+}
+
+// ── Drill-down ──
+function drillDept(deptName, reps){
+  currentDept = {name:deptName, reps};
+  document.getElementById('dept-main').classList.add('hidden');
+  document.getElementById('dept-drill').classList.add('active');
+  document.getElementById('team-drill').classList.remove('active');
+  document.getElementById('drill-dept-name').textContent = deptName;
+  document.getElementById('drill-dept-name2').textContent = deptName;
+  const attain = deptAttain(reps);
+  const bonus = deptBonus(reps);
+  const teams = groupByTeam(reps);
+  document.getElementById('drill-kpis').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Dept. attainment</div><div class="kpi-value gold">${attain}%</div></div>
+    <div class="kpi-card"><div class="kpi-label">Bonus accrual</div><div class="kpi-value">${fmtK(bonus)}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Teams</div><div class="kpi-value">${Object.keys(teams).length}</div></div>
+    <div class="kpi-card"><div class="kpi-label">Total reps</div><div class="kpi-value">${reps.length}</div></div>`;
+  const tl = document.getElementById('drill-team-list');
+  tl.innerHTML='';
+  Object.entries(teams).sort((a,b)=>deptAttain(b[1])-deptAttain(a[1])).forEach(([teamName,tReps],i)=>{
+    const attT = deptAttain(tReps);
+    const tier = getTier(attT);
+    const row = document.createElement('div');
+    row.className='dept-row';
+    row.onclick=()=>drillTeam(teamName,tReps);
+    const pctW=Math.min(attT/140*100,100);
+    row.innerHTML=`
+      <div class="dept-rank">${i+1}</div>
+      <div class="dept-avatar" style="background:${tier.color}20;color:${tier.color}">${initials(teamName)}</div>
+      <div class="dept-info"><div class="dept-name">${teamName}</div><div class="dept-sub">${tReps[0]?.lead||'—'} · ${tReps.length} reps</div></div>
+      <div class="dept-bar-wrap"><div class="bar-bg"><div class="bar-fill ${barClass(attT)}" style="width:${pctW}%"></div></div></div>
+      <div class="dept-pct" style="color:${tier.color}">${attT}%</div>
+      <div class="tier-badge ${tierClass(tier)}">${tier.name}</div>
+      <span style="color:#7a8099;font-size:14px">›</span>`;
+    tl.appendChild(row);
+  });
+}
+
+function drillTeam(teamName, reps){
+  document.getElementById('dept-drill').classList.remove('active');
+  document.getElementById('team-drill').classList.add('active');
+  document.getElementById('team-drill-dept').textContent = currentDept?.name||'';
+  document.getElementById('team-drill-name').textContent = teamName;
+  const el = document.getElementById('team-indiv-list');
+  el.innerHTML='';
+  const panel = document.createElement('div');
+  panel.className='panel';
+  panel.innerHTML=`<div class="panel-title">Team: ${teamName}</div><div class="panel-sub">${reps[0]?.lead||'—'} · ${reps.length} reps</div>
+    <div class="indiv-row hdr"><div>#</div><div>Representative</div><div>Quota %</div><div>Bonus est.</div><div>Tier</div><div></div></div>`;
+  [...reps].sort((a,b)=>attainPct(b)-attainPct(a)).forEach((rep,i)=>{
+    const pct=attainPct(rep); const tier=getTier(pct); const bonus=bonusEst(rep);
+    const row=document.createElement('div');
+    row.className='indiv-row';
+    row.innerHTML=`<div style="color:#7a8099;font-size:11px">${i+1}</div>
+      <div><div style="font-size:13px;font-weight:500;color:#e8e4d8">${rep.name}</div><div style="font-size:11px;color:#7a8099">${rep.role}</div></div>
+      <div style="color:${tier.color};font-size:12px;font-weight:500">${pct}%</div>
+      <div style="color:#c9a84c;font-weight:500">${fmt$(bonus)}</div>
+      <div><span class="tier-badge ${tierClass(tier)}">${tier.name}</span></div>
+      <div></div>`;
+    panel.appendChild(row);
+  });
+  el.appendChild(panel);
+}
+
+function exitDrill(){
+  document.getElementById('dept-main').classList.remove('hidden');
+  document.getElementById('dept-drill').classList.remove('active');
+  document.getElementById('team-drill').classList.remove('active');
+  currentDept=null;
+}
+function exitTeamDrill(){
+  if(currentDept){ document.getElementById('dept-drill').classList.add('active'); document.getElementById('team-drill').classList.remove('active'); }
+  else exitDrill();
+}
+
+// ── All teams grid ──
+function renderAllTeams(){
+  const el = document.getElementById('all-teams-grid');
+  el.innerHTML='';
+  const depts=groupByDept();
+  Object.entries(depts).forEach(([dName,dReps])=>{
+    const teams=groupByTeam(dReps);
+    Object.entries(teams).sort((a,b)=>deptAttain(b[1])-deptAttain(a[1])).forEach(([tName,tReps])=>{
+      const att=deptAttain(tReps); const tier=getTier(att);
+      const card=document.createElement('div');
+      card.className='team-card';
+      card.onclick=()=>{ showTab('departments',document.querySelector('[onclick*="departments"]')); drillDept(dName,dReps); setTimeout(()=>drillTeam(tName,tReps),50); };
+      const pctW=Math.min(att/140*100,100);
+      card.innerHTML=`<div style="font-size:13px;font-weight:500;color:#e8e4d8;margin-bottom:4px">${tName}</div>
+        <div style="font-size:11px;color:#7a8099;margin-bottom:10px">${dName} · ${tReps[0]?.lead||'—'}</div>
+        <div style="font-family:'Playfair Display',serif;font-size:20px;color:${tier.color}">${att}%</div>
+        <div style="font-size:11px;color:#7a8099;margin-top:2px">of quota · ${tReps.length} reps</div>
+        <div style="margin-top:8px"><div class="bar-bg"><div class="bar-fill ${barClass(att)}" style="width:${pctW}%;background:${tier.color}"></div></div></div>`;
+      el.appendChild(card);
+    });
+  });
+}
+
+// ── All individuals ──
+function populateDeptFilter(){
+  const sel=document.getElementById('dept-filter');
+  sel.innerHTML='<option value="all">All departments</option>';
+  const depts=[...new Set(RAW.reps.map(r=>r.dept))].sort();
+  depts.forEach(d=>{ const o=document.createElement('option'); o.value=d; o.textContent=d; sel.appendChild(o); });
+}
+
+function renderAllIndivs(){
+  const el=document.getElementById('all-indivs');
+  el.innerHTML='';
+  const filter=document.getElementById('dept-filter').value;
+  const reps=RAW.reps.filter(r=>filter==='all'||r.dept===filter);
+  const sorted=[...reps].sort((a,b)=>attainPct(b)-attainPct(a));
+  document.getElementById('indiv-sub').textContent=sorted.length+' reps · sorted by attainment';
+  sorted.forEach((rep,i)=>{
+    const pct=attainPct(rep); const tier=getTier(pct); const bonus=bonusEst(rep);
+    const row=document.createElement('div');
+    row.className='indiv-row';
+    row.innerHTML=`<div style="color:#7a8099;font-size:11px">${i+1}</div>
+      <div><div style="font-size:13px;font-weight:500;color:#e8e4d8">${rep.name}</div><div style="font-size:11px;color:#7a8099">${rep.role} · ${rep.dept}</div></div>
+      <div style="color:${tier.color};font-weight:500">${pct}%</div>
+      <div style="color:#c9a84c;font-weight:500">${fmt$(bonus)}</div>
+      <div><span class="tier-badge ${tierClass(tier)}">${tier.name}</span></div>
+      <div style="font-size:12px;color:#4aab7a">Y</div>`;
+    el.appendChild(row);
+  });
+}
+function filterIndivs(){ renderAllIndivs(); }
+
+// ── Tier structure ──
+function renderTierStructure(){
+  const el=document.getElementById('tier-structure-list');
+  el.innerHTML=RAW.tiers.map(t=>`
+    <div class="tier-row" style="border-color:${t.color}30;margin-bottom:8px">
+      <div>
+        <div style="font-size:13px;font-weight:500;color:${t.color}">${t.name}</div>
+        <div style="font-size:11px;color:#7a8099;margin-top:2px">${t.min}%–${t.max>=999?'∞':t.max+'%'} attainment</div>
+      </div>
+      <div style="text-align:right">
+        <div style="font-size:13px;font-weight:500;color:${t.color}">${Math.round(t.bonusPct*100)}% of base salary</div>
+        <div style="font-size:11px;color:#7a8099;margin-top:2px">${t.mult!==1?t.mult+'× multiplier':'standard rate'}</div>
+      </div>
+    </div>`).join('');
+  const accelTiers = RAW.tiers.filter(t=>t.mult>1);
+  document.getElementById('accel-note').textContent = accelTiers.length
+    ? accelTiers.map(t=>`${t.name} tier (${t.min}%+) applies a ${t.mult}× multiplier.`).join(' ')
+    : 'No accelerator multipliers configured.';
+}
+
+function renderSampleCalc(){
+  const sampleBase=120000;
+  const el=document.getElementById('sample-calc');
+  el.innerHTML=RAW.tiers.filter(t=>t.bonusPct>0).map(t=>{
+    const amt=Math.round(sampleBase*t.bonusPct*t.mult);
+    return `<div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #ffffff08">
+      <span style="font-size:12px;color:#b0b8cc">${t.name} (${t.min}%+ attainment)</span>
+      <span style="font-size:13px;font-weight:500;color:${t.color}">${fmt$(amt)}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── Init ──
+document.getElementById('no-data').classList.add('show');
+</script>
+</body>
+</html>
